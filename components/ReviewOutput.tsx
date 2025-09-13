@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { SparklesIcon } from './icons/SparklesIcon';
+import { ClipboardIcon } from './icons/ClipboardIcon';
+import { CheckIcon } from './icons/CheckIcon';
 
 interface ReviewOutputProps {
   review: string | null;
@@ -35,27 +37,61 @@ const WelcomeMessage: React.FC = () => (
 )
 
 export const ReviewOutput: React.FC<ReviewOutputProps> = ({ review, isLoading, error, suggestedCode, onApplyChanges }) => {
-  return (
-    <div className="bg-gray-800 rounded-lg shadow-2xl p-6 h-[70vh] max-h-[800px] flex flex-col">
-        <h2 className="text-xl font-semibold text-gray-100 mb-4 flex-shrink-0">Feedback</h2>
-        <div className="bg-gray-900 rounded-md p-4 overflow-y-auto flex-grow prose prose-invert max-w-none prose-pre:bg-gray-800 prose-pre:p-4 prose-pre:rounded-md">
-            {isLoading && <LoadingSkeleton />}
-            {error && <div className="text-red-400 bg-red-900/50 p-4 rounded-md border border-red-700">{error}</div>}
-            {!isLoading && !error && review && <div className="whitespace-pre-wrap font-sans text-gray-300" dangerouslySetInnerHTML={{ __html: review.replace(/```(\w*)\n([\s\S]*?)\n```/g, '<pre><code>$2</code></pre>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />}
-            {!isLoading && !error && !review && <WelcomeMessage />}
-        </div>
-        {suggestedCode && !isLoading && !error && (
-            <div className="mt-4 pt-4 border-t border-gray-700 flex-shrink-0">
-                <p className="text-sm text-center text-gray-400 mb-2">Gemini предложил улучшения. Хотите применить их?</p>
-                <button
-                    onClick={onApplyChanges}
-                    className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 transition-colors"
-                >
-                    <SparklesIcon className="w-5 h-5 mr-2" />
-                    Применить изменения
-                </button>
+    const [isCopied, setIsCopied] = useState(false);
+
+    const handleCopy = useCallback(() => {
+        if (review) {
+            navigator.clipboard.writeText(review).then(() => {
+                setIsCopied(true);
+                setTimeout(() => setIsCopied(false), 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
+        }
+    }, [review]);
+
+    return (
+        <div className="bg-gray-800 rounded-lg shadow-2xl p-6 h-[70vh] max-h-[800px] flex flex-col">
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                <h2 className="text-xl font-semibold text-gray-100">Feedback</h2>
+                {review && !isLoading && !error && (
+                    <button
+                        onClick={handleCopy}
+                        className={`inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md transition-colors ${
+                            isCopied
+                                ? 'text-green-900 bg-green-300'
+                                : 'text-gray-300 bg-gray-700 hover:bg-gray-600'
+                        } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-purple-500`}
+                        aria-label={isCopied ? 'Copied to clipboard' : 'Copy review to clipboard'}
+                        disabled={isCopied}
+                    >
+                        {isCopied ? (
+                            <CheckIcon className="w-4 h-4 mr-1.5" />
+                        ) : (
+                            <ClipboardIcon className="w-4 h-4 mr-1.5" />
+                        )}
+                        {isCopied ? 'Copied!' : 'Copy'}
+                    </button>
+                )}
             </div>
-        )}
-    </div>
-  );
+            <div className="bg-gray-900 rounded-md p-4 overflow-y-auto flex-grow prose prose-invert max-w-none prose-pre:bg-gray-800 prose-pre:p-4 prose-pre:rounded-md">
+                {isLoading && <LoadingSkeleton />}
+                {error && <div className="text-red-400 bg-red-900/50 p-4 rounded-md border border-red-700">{error}</div>}
+                {!isLoading && !error && review && <div className="whitespace-pre-wrap font-sans text-gray-300" dangerouslySetInnerHTML={{ __html: review.replace(/```(\w*)\n([\s\S]*?)\n```/g, '<pre><code>$2</code></pre>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />}
+                {!isLoading && !error && !review && <WelcomeMessage />}
+            </div>
+            {suggestedCode && !isLoading && !error && (
+                <div className="mt-4 pt-4 border-t border-gray-700 flex-shrink-0">
+                    <p className="text-sm text-center text-gray-400 mb-2">Gemini предложил улучшения. Хотите применить их?</p>
+                    <button
+                        onClick={onApplyChanges}
+                        className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 transition-colors"
+                    >
+                        <SparklesIcon className="w-5 h-5 mr-2" />
+                        Применить изменения
+                    </button>
+                </div>
+            )}
+        </div>
+    );
 };

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import { SparklesIcon } from './icons/SparklesIcon';
+import { UploadIcon } from './icons/UploadIcon';
 
 interface CodeInputProps {
   code: string;
@@ -12,28 +13,76 @@ interface CodeInputProps {
 }
 
 export const CodeInput: React.FC<CodeInputProps> = ({ code, setCode, language, setLanguage, onReview, isLoading }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result;
+      if (typeof text === 'string') {
+        setCode(text);
+      }
+    };
+    reader.onerror = () => {
+      console.error('Failed to read file.');
+      alert('Error: Could not read the selected file.');
+    };
+    reader.readAsText(file);
+
+    // Reset the input value to allow uploading the same file again
+    event.target.value = '';
+  };
+
   return (
     <div className="bg-gray-800 rounded-lg shadow-2xl p-6 flex flex-col h-[70vh] max-h-[800px]">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-100">Your Code</h2>
-        <select
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-          className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-auto p-2.5"
-        >
-          {SUPPORTED_LANGUAGES.map((lang) => (
-            <option key={lang.value} value={lang.value}>
-              {lang.label}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleUploadClick}
+            className="inline-flex items-center justify-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-purple-500 transition-colors"
+            aria-label="Upload a code file"
+          >
+            <UploadIcon className="w-4 h-4 mr-2" />
+            Upload File
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept=".js,.jsx,.ts,.tsx,.py,.java,.cs,.go,.rs,.html,.css,.sql,.json,.txt,.md"
+          />
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-auto p-2.5"
+            aria-label="Select programming language"
+          >
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <option key={lang.value} value={lang.value}>
+                {lang.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <textarea
         value={code}
         onChange={(e) => setCode(e.target.value)}
-        placeholder="Paste your code snippet here..."
+        placeholder="Paste your code snippet here or upload a file..."
         className="flex-grow bg-gray-900 border border-gray-700 rounded-md p-4 font-mono text-sm w-full focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none transition-shadow"
         spellCheck="false"
+        aria-label="Code input area"
       />
       <button
         onClick={onReview}

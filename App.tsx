@@ -69,6 +69,7 @@ const App: React.FC = () => {
       </main>
       <footer className="text-center p-4 text-gray-500 text-sm">
         <p>Powered by Google Gemini. Built for developers.</p>
+        <p className="mt-1">Crafted with ❤️ by your AI assistant.</p>
       </footer>
     </div>
   );
