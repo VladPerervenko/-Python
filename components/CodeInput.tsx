@@ -10,9 +10,11 @@ interface CodeInputProps {
   setLanguage: (language: string) => void;
   onReview: () => void;
   isLoading: boolean;
+  loadingMessage: string;
+  setOriginalFileName: (name: string | null) => void;
 }
 
-export const CodeInput: React.FC<CodeInputProps> = ({ code, setCode, language, setLanguage, onReview, isLoading }) => {
+export const CodeInput: React.FC<CodeInputProps> = ({ code, setCode, language, setLanguage, onReview, isLoading, loadingMessage, setOriginalFileName }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUploadClick = () => {
@@ -24,6 +26,10 @@ export const CodeInput: React.FC<CodeInputProps> = ({ code, setCode, language, s
     if (!file) {
       return;
     }
+
+    setOriginalFileName(file.name);
+    // When a file is uploaded, set language to auto-detect
+    setLanguage('auto');
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -78,7 +84,10 @@ export const CodeInput: React.FC<CodeInputProps> = ({ code, setCode, language, s
       </div>
       <textarea
         value={code}
-        onChange={(e) => setCode(e.target.value)}
+        onChange={(e) => {
+            setCode(e.target.value);
+            setOriginalFileName(null);
+        }}
         placeholder="Paste your code snippet here or upload a file..."
         className="flex-grow bg-gray-900 border border-gray-700 rounded-md p-4 font-mono text-sm w-full focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none transition-shadow"
         spellCheck="false"
@@ -95,7 +104,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({ code, setCode, language, s
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            Reviewing...
+            {loadingMessage || 'Reviewing...'}
           </>
         ) : (
           <>

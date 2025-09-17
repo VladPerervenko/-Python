@@ -2,16 +2,17 @@ import React, { useState, useCallback } from 'react';
 import { Header } from './components/Header';
 import { CodeInput } from './components/CodeInput';
 import { ReviewOutput } from './components/ReviewOutput';
-import { reviewCode } from './services/geminiService';
-import { SUPPORTED_LANGUAGES } from './constants';
+import { reviewCode, detectLanguage, GeminiApiError } from './services/geminiService';
 
 const App: React.FC = () => {
   const [code, setCode] = useState<string>('');
-  const [language, setLanguage] = useState<string>(SUPPORTED_LANGUAGES[0].value);
+  const [language, setLanguage] = useState<string>('auto');
   const [review, setReview] = useState<string | null>(null);
   const [suggestedCode, setSuggestedCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [originalFileName, setOriginalFileName] = useState<string | null>(null);
 
   const handleReview = useCallback(async () => {
     if (!code.trim()) {
@@ -19,24 +20,47 @@ const App: React.FC = () => {
       return;
     }
     setIsLoading(true);
+    setLoadingMessage('');
     setError(null);
     setReview(null);
     setSuggestedCode(null);
 
     try {
-      const { review: feedback, suggestedCode: newCode } = await reviewCode(code, language);
+      let languageToUse = language;
+      if (language === 'auto') {
+        setLoadingMessage('Detecting language...');
+        const detectionResult = await detectLanguage(code);
+
+        if (detectionResult.confidence === 'low') {
+          setError('Could not confidently detect the language. Please select it manually and try again.');
+          setIsLoading(false);
+          setLoadingMessage('');
+          return;
+        }
+
+        const detectedLanguage = detectionResult.language;
+        setLanguage(detectedLanguage);
+        languageToUse = detectedLanguage;
+      }
+
+      setLoadingMessage('Reviewing code...');
+      const { review: feedback, suggestedCode: newCode } = await reviewCode(code, languageToUse);
       setReview(feedback);
       if (newCode && newCode.trim() !== code.trim()) {
         setSuggestedCode(newCode);
       }
     } catch (err) {
-      if (err instanceof Error) {
-        setError(`Failed to get review: ${err.message}. Please check your API key and try again.`);
+      if (err instanceof GeminiApiError) {
+        // The custom error from the service already has a user-friendly message.
+        setError(err.message);
+      } else if (err instanceof Error) {
+        setError(`An unexpected application error occurred: ${err.message}`);
       } else {
         setError('An unknown error occurred.');
       }
     } finally {
       setIsLoading(false);
+      setLoadingMessage('');
     }
   }, [code, language]);
 
@@ -58,6 +82,8 @@ const App: React.FC = () => {
           setLanguage={setLanguage}
           onReview={handleReview}
           isLoading={isLoading}
+          loadingMessage={loadingMessage}
+          setOriginalFileName={setOriginalFileName}
         />
         <ReviewOutput
           review={review}
@@ -65,6 +91,7 @@ const App: React.FC = () => {
           error={error}
           suggestedCode={suggestedCode}
           onApplyChanges={handleApplyChanges}
+          originalFileName={originalFileName}
         />
       </main>
       <footer className="text-center p-4 text-gray-500 text-sm">
