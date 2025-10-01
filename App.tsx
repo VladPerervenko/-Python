@@ -1,18 +1,47 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Header } from './components/Header';
 import { CodeInput } from './components/CodeInput';
 import { ReviewOutput } from './components/ReviewOutput';
-import { reviewCode, detectLanguage, GeminiApiError } from './services/geminiService';
+import { HistoryPanel } from './components/HistoryPanel';
+import { reviewCode, detectLanguage, GeminiApiError, StructuredReview, ReviewPoint } from './services/geminiService';
+
+export interface HistoryItem {
+  id: string;
+  code: string;
+  language: string;
+  review: StructuredReview;
+  suggestedCode: string | null;
+  timestamp: number;
+}
+
+const MAX_HISTORY_ITEMS = 50;
 
 const App: React.FC = () => {
   const [code, setCode] = useState<string>('');
   const [language, setLanguage] = useState<string>('auto');
-  const [review, setReview] = useState<string | null>(null);
+  const [review, setReview] = useState<StructuredReview | null>(null);
   const [suggestedCode, setSuggestedCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [originalFileName, setOriginalFileName] = useState<string | null>(null);
+  const [explanations, setExplanations] = useState<Record<number, string>>({});
+  const [explanationLoading, setExplanationLoading] = useState<Record<number, boolean>>({});
+
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const storedHistory = localStorage.getItem('reviewHistory');
+      if (storedHistory) {
+        setHistory(JSON.parse(storedHistory));
+      }
+    } catch (e) {
+      console.error("Failed to parse history from localStorage", e);
+      localStorage.removeItem('reviewHistory');
+    }
+  }, []);
 
   const handleReview = useCallback(async () => {
     if (!code.trim()) {
@@ -24,6 +53,9 @@ const App: React.FC = () => {
     setError(null);
     setReview(null);
     setSuggestedCode(null);
+    setExplanations({});
+    setExplanationLoading({});
+    setActiveHistoryId(null);
 
     try {
       let languageToUse = language;
@@ -49,9 +81,25 @@ const App: React.FC = () => {
       if (newCode && newCode.trim() !== code.trim()) {
         setSuggestedCode(newCode);
       }
+
+      const newHistoryItem: HistoryItem = {
+        id: Date.now().toString(),
+        code,
+        language: languageToUse,
+        review: feedback,
+        suggestedCode: newCode,
+        timestamp: Date.now(),
+      };
+
+      setHistory(prevHistory => {
+        const updatedHistory = [newHistoryItem, ...prevHistory.filter(item => item.code !== code)].slice(0, MAX_HISTORY_ITEMS);
+        localStorage.setItem('reviewHistory', JSON.stringify(updatedHistory));
+        return updatedHistory;
+      });
+      setActiveHistoryId(newHistoryItem.id);
+
     } catch (err) {
       if (err instanceof GeminiApiError) {
-        // The custom error from the service already has a user-friendly message.
         setError(err.message);
       } else if (err instanceof Error) {
         setError(`An unexpected application error occurred: ${err.message}`);
@@ -68,38 +116,14 @@ const App: React.FC = () => {
     if (suggestedCode) {
       setCode(suggestedCode);
       setSuggestedCode(null);
+      setActiveHistoryId(null);
     }
   }, [suggestedCode]);
 
-  return (
-    <div className="min-h-screen bg-gray-900 text-gray-200 font-sans flex flex-col">
-      <Header />
-      <main className="flex-grow container mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <CodeInput
-          code={code}
-          setCode={setCode}
-          language={language}
-          setLanguage={setLanguage}
-          onReview={handleReview}
-          isLoading={isLoading}
-          loadingMessage={loadingMessage}
-          setOriginalFileName={setOriginalFileName}
-        />
-        <ReviewOutput
-          review={review}
-          isLoading={isLoading}
-          error={error}
-          suggestedCode={suggestedCode}
-          onApplyChanges={handleApplyChanges}
-          originalFileName={originalFileName}
-        />
-      </main>
-      <footer className="text-center p-4 text-gray-500 text-sm">
-        <p>Powered by Google Gemini. Built for developers.</p>
-        <p className="mt-1">Crafted with ❤️ by your AI assistant.</p>
-      </footer>
-    </div>
-  );
-};
+  const handleExplainFurther = useCallback(async (pointIndex: number, point: ReviewPoint) => {
+    setExplanationLoading(prev => ({ ...prev, [pointIndex]: true }));
+    setError(null);
 
-export default App;
+    try {
+      const { explainFurther } = await import('./services/geminiService');
+      const explanation = await explainFurther(code, language, point

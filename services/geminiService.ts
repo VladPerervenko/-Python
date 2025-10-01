@@ -38,7 +38,7 @@ const handleApiError = (error: unknown): GeminiApiError => {
       message = "A network error occurred. Please check your internet connection and try again.";
       type = 'NETWORK';
     } else if (error.message.includes('400')) { // Bad Request
-        message = "The request to the Gemini API was malformed. This might be an issue with the prompt or model configuration.";
+        message = "The API request failed (400 Bad Request). This can sometimes be caused by syntax errors or incomplete code in your input. Please review your code and try again.";
         type = 'BAD_REQUEST';
     } else {
       message = error.message;
@@ -47,9 +47,18 @@ const handleApiError = (error: unknown): GeminiApiError => {
   return new GeminiApiError(message, type);
 };
 
+export interface ReviewPoint {
+  topic: string;
+  feedback: string;
+}
+
+export interface StructuredReview {
+  summary: string;
+  points: ReviewPoint[];
+}
 
 export interface CodeReview {
-  review: string;
+  review: StructuredReview;
   suggestedCode: string | null;
 }
 
@@ -128,39 +137,59 @@ export const reviewCode = async (code: string, language: string): Promise<CodeRe
   
   const prompt = `
     Как эксперт по ревью кода, пожалуйста, проанализируй следующий фрагмент кода на языке ${language}.
-
     Твой ответ ДОЛЖЕН быть в формате JSON, соответствующем предоставленной схеме.
 
-    Сосредоточься на следующих областях для своего отзыва в поле "review":
-    1.  **Корректность и ошибки:** Определи любые логические ошибки, потенциальные баги или крайние случаи, которые не обрабатываются.
-    2.  **Лучшие практики и читаемость:** Соответствует ли код установленным лучшим практикам и соглашениям для языка ${language}? Является ли он ясным, кратким и поддерживаемым?
-    3.  **Производительность:** Укажи на любые потенциальные узкие места в производительности или предложи более эффективные подходы.
-    4.  **Безопасность:** Выдели любые очевидные уязвимости безопасности.
-    5.  **Предложения по улучшению:** Предложи конкретные, действенные предложения.
+    Для объекта "review":
+    - "summary": Предоставь краткое, в одно-два предложения, общее резюме качества кода.
+    - "points": Предоставь список конкретных пунктов обратной связи. Для каждого пункта:
+      - "topic": Краткий заголовок для категории обратной связи (например, "Корректность", "Читаемость", "Производительность", "Безопасность", "Лучшие практики").
+      - "feedback": Подробный, действенный отзыв по этому пункту в формате Markdown.
 
-    В поле "suggestedCode" верни полный фрагмент кода с примененными улучшениями.
-    - Если никаких изменений не требуется, верни null для поля "suggestedCode".
+    Для поля "suggestedCode":
+    - Если можно внести улучшения, верни полный, улучшенный фрагмент кода.
+    - Если никаких изменений не требуется, верни null.
     - Убедись, что возвращаемый код является полным и может напрямую заменить оригинальный.
 
     Вот код:
     \`\`\`${language}
     ${code}
     \`\`\`
-
-    Предоставь свой отзыв в поле "review" в формате Markdown на русском языке.
   `;
   
   const responseSchema = {
     type: Type.OBJECT,
     properties: {
         review: {
-            type: Type.STRING,
-            description: "Подробный отзыв о коде в формате Markdown на русском языке."
+            type: Type.OBJECT,
+            properties: {
+                summary: {
+                    type: Type.STRING,
+                    description: "A brief overall summary of the code review in Russian."
+                },
+                points: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            topic: {
+                                type: Type.STRING,
+                                description: "The topic of the feedback point in Russian (e.g., 'Корректность', 'Производительность')."
+                            },
+                            feedback: {
+                                type: Type.STRING,
+                                description: "Detailed feedback for this point in Markdown format, in Russian."
+                            }
+                        },
+                        required: ["topic", "feedback"]
+                    }
+                }
+            },
+            required: ["summary", "points"]
         },
         suggestedCode: {
             type: Type.STRING,
             nullable: true,
-            description: "Полный код с предложенными улучшениями или null, если улучшения не нужны."
+            description: "The full code with suggested improvements, or null if no improvements are needed."
         }
     }
   };
@@ -184,4 +213,41 @@ export const reviewCode = async (code: string, language: string): Promise<CodeRe
     }
     throw handleApiError(error);
   }
+};
+
+export const explainFurther = async (code: string, language: string, point: ReviewPoint): Promise<string> => {
+    const model = 'gemini-2.5-flash';
+
+    const prompt = `
+      An expert code review was performed on a snippet of ${language} code.
+      A user has requested a more detailed explanation for a specific feedback point.
+
+      Please elaborate on the feedback provided. Your explanation should be easy to understand for a developer.
+      - Explain *why* this is an issue or a point of improvement.
+      - Discuss the underlying concepts or principles.
+      - If applicable, provide a small, focused "before" and "after" code example to illustrate the improvement.
+      - Keep the tone helpful and educational.
+      - Respond in Russian.
+
+      **Original Code Snippet:**
+      \`\`\`${language}
+      ${code}
+      \`\`\`
+
+      **Feedback Point to Explain:**
+      - **Topic:** ${point.topic}
+      - **Feedback:** ${point.feedback}
+
+      Provide your detailed explanation in Markdown format.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        throw handleApiError(error);
+    }
 };
