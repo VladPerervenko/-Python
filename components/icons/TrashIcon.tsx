@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const ClipboardIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+export const TrashIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="24"
@@ -13,7 +13,7 @@ export const ClipboardIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) =>
     strokeLinejoin="round"
     {...props}
   >
-    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
   </svg>
 );

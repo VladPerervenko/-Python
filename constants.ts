@@ -1,5 +1,4 @@
 export const SUPPORTED_LANGUAGES = [
-  { value: 'auto', label: 'Auto-detect' },
   { value: 'javascript', label: 'JavaScript' },
   { value: 'typescript', label: 'TypeScript' },
   { value: 'python', label: 'Python' },
