@@ -13,11 +13,13 @@ export interface CodeReview {
   suggestedCode: string | null;
 }
 
-export const reviewCode = async (code: string, language: string): Promise<CodeReview> => {
+export const reviewCode = async (code: string, language: string, fileName: string | null = null): Promise<CodeReview> => {
   const model = 'gemini-2.5-flash';
   
+  const fileContext = fileName ? `Файл называется "${fileName}". Учитывай это в своем анализе.` : '';
+
   const prompt = `
-    Как эксперт по ревью кода, пожалуйста, проанализируй следующий фрагмент кода на языке ${language}.
+    Как эксперт по ревью кода, пожалуйста, проанализируй следующий фрагмент кода на языке ${language}. ${fileContext}
 
     Твой ответ ДОЛЖЕН быть в формате JSON, соответствующем предоставленной схеме.
 

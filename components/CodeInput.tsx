@@ -13,15 +13,19 @@ interface CodeInputProps {
   isLoading: boolean;
   onClear: () => void;
   setOriginalFileName: (name: string | null) => void;
+  setIsSuggestionApplied: (applied: boolean) => void;
+  setActiveSessionId: (id: string | null) => void;
 }
 
-export const CodeInput: React.FC<CodeInputProps> = ({ code, setCode, language, setLanguage, onReview, isLoading, onClear, setOriginalFileName }) => {
+export const CodeInput: React.FC<CodeInputProps> = ({ code, setCode, language, setLanguage, onReview, isLoading, onClear, setOriginalFileName, setIsSuggestionApplied, setActiveSessionId }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setOriginalFileName(file.name);
+      setIsSuggestionApplied(false);
+      setActiveSessionId(null);
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target?.result;
@@ -113,6 +117,8 @@ export const CodeInput: React.FC<CodeInputProps> = ({ code, setCode, language, s
         onChange={(e) => {
           setCode(e.target.value);
           setOriginalFileName(null);
+          setIsSuggestionApplied(false);
+          setActiveSessionId(null);
         }}
         placeholder="Paste your code snippet here or upload a file..."
         className="flex-grow bg-gray-900 border border-gray-700 rounded-md p-4 font-mono text-sm w-full focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none transition-shadow"

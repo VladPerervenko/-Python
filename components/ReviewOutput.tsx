@@ -12,6 +12,7 @@ interface ReviewOutputProps {
   originalCode: string;
   language: string;
   originalFileName: string | null;
+  isSuggestionApplied: boolean;
 }
 
 const LoadingSkeleton: React.FC = () => (
@@ -39,7 +40,7 @@ const WelcomeMessage: React.FC = () => (
     </div>
 )
 
-export const ReviewOutput: React.FC<ReviewOutputProps> = ({ review, isLoading, error, suggestedCode, onApplyChanges, originalCode, language, originalFileName }) => {
+export const ReviewOutput: React.FC<ReviewOutputProps> = ({ review, isLoading, error, suggestedCode, onApplyChanges, originalCode, language, originalFileName, isSuggestionApplied }) => {
     
     const handleSaveReview = () => {
         if (!review) return;
@@ -68,8 +69,8 @@ export const ReviewOutput: React.FC<ReviewOutputProps> = ({ review, isLoading, e
         URL.revokeObjectURL(url);
     };
 
-    const handleSaveSuggestedCode = () => {
-        if (!suggestedCode) return;
+    const saveCodeToFile = (codeToSave: string) => {
+        if (!codeToSave) return;
 
         const langExtMap: { [key: string]: string } = {
             javascript: 'js',
@@ -98,7 +99,7 @@ export const ReviewOutput: React.FC<ReviewOutputProps> = ({ review, isLoading, e
             }
         }
         
-        const blob = new Blob([suggestedCode], { type: 'text/plain;charset=utf-8' });
+        const blob = new Blob([codeToSave], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -108,6 +109,8 @@ export const ReviewOutput: React.FC<ReviewOutputProps> = ({ review, isLoading, e
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     };
+
+    const showSuggestionActions = (suggestedCode || isSuggestionApplied) && !isLoading && !error;
 
     return (
     <div className="bg-gray-800 rounded-lg shadow-2xl p-6 h-[70vh] max-h-[800px] flex flex-col">
@@ -130,26 +133,44 @@ export const ReviewOutput: React.FC<ReviewOutputProps> = ({ review, isLoading, e
             {!isLoading && !error && review && <div className="whitespace-pre-wrap font-sans text-gray-300" dangerouslySetInnerHTML={{ __html: review.replace(/```(\w*)\n([\s\S]*?)\n```/g, '<pre><code>$2</code></pre>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />}
             {!isLoading && !error && !review && <WelcomeMessage />}
         </div>
-        {suggestedCode && !isLoading && !error && (
+        {showSuggestionActions && (
             <div className="mt-4 pt-4 border-t border-gray-700 flex-shrink-0">
-                <p className="text-sm text-center text-gray-400 mb-2">Gemini предложил улучшения.</p>
-                <div className="flex flex-col sm:flex-row gap-2">
-                    <button
-                        onClick={onApplyChanges}
-                        className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 transition-colors"
-                    >
-                        <SparklesIcon className="w-5 h-5 mr-2" />
-                        Применить изменения
-                    </button>
-                    <button
-                        onClick={handleSaveSuggestedCode}
-                        className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 transition-colors"
-                        title="Сохранить исправленный код в файл"
-                    >
-                        <SaveIcon className="w-5 h-5 mr-2" />
-                        Сохранить исправленный код
-                    </button>
-                </div>
+                {suggestedCode ? (
+                    <>
+                        <p className="text-sm text-center text-gray-400 mb-2">Gemini предложил улучшения.</p>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <button
+                                onClick={onApplyChanges}
+                                className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 transition-colors"
+                            >
+                                <SparklesIcon className="w-5 h-5 mr-2" />
+                                Применить изменения
+                            </button>
+                            <button
+                                onClick={() => saveCodeToFile(suggestedCode)}
+                                className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 transition-colors"
+                                title="Сохранить исправленный код в файл"
+                            >
+                                <SaveIcon className="w-5 h-5 mr-2" />
+                                Сохранить исправленный код
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <p className="text-sm text-center text-gray-400 mb-2">Изменения применены. Вы можете сохранить исправленный код.</p>
+                        <div className="flex">
+                            <button
+                                onClick={() => saveCodeToFile(originalCode)}
+                                className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 transition-colors"
+                                title="Сохранить исправленный код в файл"
+                            >
+                                <SaveIcon className="w-5 h-5 mr-2" />
+                                Сохранить исправленный код
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
         )}
     </div>
