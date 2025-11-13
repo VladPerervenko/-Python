@@ -80,6 +80,7 @@ export const ReviewOutput: React.FC<ReviewOutputProps> = ({ review, isLoading, e
             csharp: 'cs',
             go: 'go',
             rust: 'rs',
+            r: 'r',
             html: 'html',
             css: 'css',
             sql: 'sql',
